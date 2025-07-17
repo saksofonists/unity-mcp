@@ -41,6 +41,11 @@ def register_read_console_tools(mcp: FastMCP):
         # Set defaults if values are None
         action = action if action is not None else 'get'
         types = types if types is not None else ['error', 'warning', 'log']
+        # Errors sometimes get misclassified as errors and vice-versa, so always add one if other is present
+        if 'error' in types and 'warning' not in types:
+            types.append('warning')
+        if 'warning' in types and 'error' not in types:
+            types.append('error')
         format = format if format is not None else 'detailed'
         include_stacktrace = include_stacktrace if include_stacktrace is not None else True
 
