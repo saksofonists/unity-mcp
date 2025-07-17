@@ -258,6 +258,7 @@ namespace UnityMcpBridge.Editor
                     {
                         EditorApplication.RepaintHierarchyWindow();
                         EditorApplication.RepaintProjectWindow();
+                        yield return null;
                     }
                 }
                 ProcessCommands();
