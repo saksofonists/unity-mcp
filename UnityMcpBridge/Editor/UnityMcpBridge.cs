@@ -104,7 +104,6 @@ namespace UnityMcpBridge.Editor
                     Task.Run(ListenerLoop);
                     
                     // Start timer to process commands every 16ms (approximately 60 FPS)
-                    Application.runInBackground = true;
                     processCommandsCoroutine = EditorCoroutineUtility.StartCoroutineOwnerless(ScheduleAndProcessCommands());
                     break;
                 }
