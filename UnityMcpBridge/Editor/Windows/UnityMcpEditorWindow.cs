@@ -4,6 +4,7 @@ using System.Runtime.InteropServices;
 using Newtonsoft.Json;
 using UnityEditor;
 using UnityEngine;
+using UnityMcpBridge.Editor.Configuration;
 using UnityMcpBridge.Editor.Data;
 using UnityMcpBridge.Editor.Helpers;
 using UnityMcpBridge.Editor.Models;
@@ -16,8 +17,6 @@ namespace UnityMcpBridge.Editor.Windows
         private Vector2 scrollPosition;
         private string pythonServerInstallationStatus = "Not Installed";
         private Color pythonServerInstallationStatusColor = Color.red;
-        private const int unityPort = 6400; // Hardcoded Unity port
-        private const int mcpPort = 6500; // Hardcoded MCP port
         private readonly McpClients mcpClients = new();
 
         [MenuItem("Window/Unity MCP")]
@@ -280,8 +279,9 @@ namespace UnityMcpBridge.Editor.Windows
             EditorGUILayout.LabelField("      " + pythonServerInstallationStatus);
             EditorGUILayout.EndHorizontal();
 
-            EditorGUILayout.LabelField($"Unity Port: {unityPort}");
-            EditorGUILayout.LabelField($"MCP Port: {mcpPort}");
+            int displayPort = UnityMcpBridge.IsRunning ? UnityMcpBridge.ActualPort : UnityMcpConfig.UnityPort;
+            EditorGUILayout.LabelField($"Unity Port: {displayPort}");
+            EditorGUILayout.LabelField($"MCP Port: {UnityMcpConfig.McpPort}");
             EditorGUILayout.HelpBox(
                 "Your MCP client (e.g. Cursor or Claude Desktop) will start the server automatically when you start it.",
                 MessageType.Info
@@ -294,7 +294,8 @@ namespace UnityMcpBridge.Editor.Windows
             EditorGUILayout.BeginVertical(EditorStyles.helpBox);
             EditorGUILayout.LabelField("Unity MCP Bridge", EditorStyles.boldLabel);
             EditorGUILayout.LabelField($"Status: {(isUnityBridgeRunning ? "Running" : "Stopped")}");
-            EditorGUILayout.LabelField($"Port: {unityPort}");
+            int bridgePort = UnityMcpBridge.IsRunning ? UnityMcpBridge.ActualPort : UnityMcpConfig.UnityPort;
+            EditorGUILayout.LabelField($"Port: {bridgePort}");
 
             if (GUILayout.Button(isUnityBridgeRunning ? "Stop Bridge" : "Start Bridge"))
             {
@@ -456,8 +457,14 @@ namespace UnityMcpBridge.Editor.Windows
 
         private string FindPackagePythonDirectory()
         {
-            string pythonDir = ServerInstaller.GetServerPath();
+            // First check project-specific installation
+            string projectServerPath = ServerInstaller.GetServerPath();
+            if (Directory.Exists(projectServerPath) && File.Exists(Path.Combine(projectServerPath, "server.py")))
+            {
+                return projectServerPath;
+            }
 
+            // If not found in project, check package installations
             try
             {
                 // Try to find the package using Package Manager API
@@ -504,15 +511,15 @@ namespace UnityMcpBridge.Editor.Windows
                     }
                 }
 
-                // If still not found, return the placeholder path
-                Debug.LogWarning("Could not find Python directory, using placeholder path");
+                // If still not found, return the project path anyway
+                Debug.LogWarning("Could not find Python directory, using project server path");
             }
             catch (Exception e)
             {
                 Debug.LogError($"Error finding package path: {e.Message}");
             }
 
-            return pythonDir;
+            return projectServerPath;
         }
 
         private string ConfigureMcpClient(McpClient mcpClient)

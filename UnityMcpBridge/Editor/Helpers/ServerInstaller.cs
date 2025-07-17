@@ -4,6 +4,7 @@ using System.Linq;
 using System.Net;
 using System.Runtime.InteropServices;
 using UnityEngine;
+using UnityMcpBridge.Editor.Configuration;
 
 namespace UnityMcpBridge.Editor.Helpers
 {
@@ -25,6 +26,13 @@ namespace UnityMcpBridge.Editor.Helpers
         {
             try
             {
+                // Validate we're in a Unity project context
+                if (!IsValidUnityProject())
+                {
+                    Debug.LogError("[ServerInstaller] Not in a valid Unity project context. Cannot install server.");
+                    return;
+                }
+
                 string saveLocation = GetSaveLocation();
 
                 if (!IsServerInstalled(saveLocation))
@@ -56,39 +64,22 @@ namespace UnityMcpBridge.Editor.Helpers
 
         /// <summary>
         /// Gets the platform-specific save location for the server.
+        /// Now uses project-specific Library directory for true isolation.
         /// </summary>
         private static string GetSaveLocation()
         {
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            // Use project-specific path from UnityMcpConfig
+            string projectServerPath = UnityMcpConfig.GetProjectServerPath();
+            
+            // Ensure the base directory exists (Library should always exist, but let's be safe)
+            string libraryPath = UnityMcpConfig.GetProjectLibraryPath();
+            if (!Directory.Exists(libraryPath))
             {
-                return Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                    "AppData",
-                    "Local",
-                    "Programs",
-                    RootFolder
-                );
+                throw new Exception($"Unity Library directory not found at: {libraryPath}. Is this a valid Unity project?");
             }
-            else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-            {
-                return Path.Combine(
-                    Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                    "bin",
-                    RootFolder
-                );
-            }
-            else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-            {
-                string path = "/usr/local/bin";
-                return !Directory.Exists(path) || !IsDirectoryWritable(path)
-                    ? Path.Combine(
-                        Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-                        "Applications",
-                        RootFolder
-                    )
-                    : Path.Combine(path, RootFolder);
-            }
-            throw new Exception("Unsupported operating system.");
+            
+            // Return the parent directory of the server folder since other methods expect this structure
+            return Path.GetDirectoryName(projectServerPath);
         }
 
         private static bool IsDirectoryWritable(string path)
@@ -244,6 +235,43 @@ namespace UnityMcpBridge.Editor.Helpers
                 throw new Exception(
                     $"Command failed: {command} {arguments}\nOutput: {output}\nError: {error}"
                 );
+            }
+        }
+
+        /// <summary>
+        /// Validates that we're in a valid Unity project context
+        /// </summary>
+        private static bool IsValidUnityProject()
+        {
+            try
+            {
+                // Check if Application.dataPath is valid
+                string dataPath = Application.dataPath;
+                if (string.IsNullOrEmpty(dataPath) || !Directory.Exists(dataPath))
+                {
+                    return false;
+                }
+
+                // Check if Library directory exists
+                string libraryPath = UnityMcpConfig.GetProjectLibraryPath();
+                if (!Directory.Exists(libraryPath))
+                {
+                    return false;
+                }
+
+                // Check if we can write to the Library directory
+                if (!IsDirectoryWritable(libraryPath))
+                {
+                    Debug.LogError($"[ServerInstaller] Library directory is not writable: {libraryPath}");
+                    return false;
+                }
+
+                return true;
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[ServerInstaller] Error validating Unity project: {e.Message}");
+                return false;
             }
         }
     }

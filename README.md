@@ -110,6 +110,8 @@ If Auto-Configure fails or you use a different client:
 <details>
 <summary><strong>Click for OS-Specific JSON Configuration Snippets...</strong></summary>
 
+**Note:** The Python server is now installed per-project in your Unity project's Library directory. Replace `YOUR_PROJECT_PATH` with your actual Unity project path.
+
 **Windows:**
 
   ```json
@@ -120,7 +122,7 @@ If Auto-Configure fails or you use a different client:
         "args": [
           "run",
           "--directory",
-          "C:\\Users\\YOUR_USERNAME\\AppData\\Local\\Programs\\UnityMCP\\UnityMcpServer\\src",
+          "C:\\path\\to\\YOUR_PROJECT_PATH\\Library\\UnityMcpServer\\UnityMcpServer\\src",
           "server.py"
         ]
       }
@@ -129,7 +131,7 @@ If Auto-Configure fails or you use a different client:
   }
 ``` 
 
-(Remember to replace YOUR_USERNAME and use double backslashes \\)
+(Remember to replace YOUR_PROJECT_PATH and use double backslashes \\)
 
 **macOS:**
 
@@ -141,7 +143,7 @@ If Auto-Configure fails or you use a different client:
       "args": [
         "run",
         "--directory",
-        "/usr/local/bin/UnityMCP/UnityMcpServer/src",
+        "/path/to/YOUR_PROJECT_PATH/Library/UnityMcpServer/UnityMcpServer/src",
         "server.py"
       ]
     }
@@ -149,7 +151,6 @@ If Auto-Configure fails or you use a different client:
   }
 }
 ```
-(Replace YOUR_USERNAME if using ~/bin)
 
 **Linux:**
 
@@ -161,7 +162,7 @@ If Auto-Configure fails or you use a different client:
       "args": [
         "run",
         "--directory",
-        "/home/YOUR_USERNAME/bin/UnityMCP/UnityMcpServer/src",
+        "/path/to/YOUR_PROJECT_PATH/Library/UnityMcpServer/UnityMcpServer/src",
         "server.py"
       ]
     }
@@ -170,7 +171,7 @@ If Auto-Configure fails or you use a different client:
 }
 ```
 
-(Replace YOUR_USERNAME)
+(Replace YOUR_PROJECT_PATH with your Unity project path)
 
 </details>
 
@@ -185,7 +186,30 @@ If Auto-Configure fails or you use a different client:
 3. **Interact!** Unity tools should now be available in your MCP Client.
     
     Example Prompt: `Create a 3D player controller`, `Create a yellow and bridge sun`, `Create a cool shader and apply it on a cube`.
-    
+
+---
+
+## Multiple Unity Instances Support 🎯
+
+Unity MCP now supports running multiple Unity Editor instances simultaneously! Each Unity project gets its own isolated server installation and dynamic port assignment.
+
+### How It Works:
+- **Per-Project Installation**: The Python server is installed in each Unity project's `Library/UnityMcpServer` directory
+- **Dynamic Port Selection**: Unity automatically finds an available port (starting at 6400)
+- **Automatic Configuration**: The selected port is communicated to the Python server via a file
+
+### Benefits:
+- ✅ Run multiple Unity projects simultaneously
+- ✅ Each project has its own isolated server instance
+- ✅ No port conflicts between projects
+- ✅ Zero manual configuration required
+
+### Technical Details:
+- Unity Bridge tries port 6400 first, then increments until it finds an available port
+- The selected port is written to `Library/UnityMcpServer/unity-port.txt`
+- Python server reads this file on startup to connect to the correct Unity instance
+- Each Unity-Python pair maintains a 1:1 relationship
+
 ---
 
 ## Future Dev Plans (Besides PR) 📝

@@ -9,6 +9,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using UnityEditor;
 using UnityEngine;
+using UnityMcpBridge.Editor.Configuration;
 using UnityMcpBridge.Editor.Helpers;
 using UnityMcpBridge.Editor.Models;
 using UnityMcpBridge.Editor.Tools;
@@ -25,9 +26,10 @@ namespace UnityMcpBridge.Editor
             string,
             (string commandJson, TaskCompletionSource<string> tcs)
         > commandQueue = new();
-        private static readonly int unityPort = 6400; // Hardcoded port
+        private static int actualPort = 0; // Track the actual port being used
 
         public static bool IsRunning => isRunning;
+        public static int ActualPort => actualPort;
 
         public static bool FolderExists(string path)
         {
@@ -72,28 +74,57 @@ namespace UnityMcpBridge.Editor
                 return;
             }
 
-            try
+            // Try to find an available port
+            int startPort = UnityMcpConfig.DEFAULT_UNITY_PORT;
+            int maxPort = UnityMcpConfig.MAX_PORT;
+            bool portFound = false;
+
+            for (int port = startPort; port <= maxPort; port++)
             {
-                listener = new TcpListener(IPAddress.Loopback, unityPort);
-                listener.Start();
-                isRunning = true;
-                Debug.Log($"UnityMcpBridge started on port {unityPort}.");
-                // Assuming ListenerLoop and ProcessCommands are defined elsewhere
-                Task.Run(ListenerLoop);
-                EditorApplication.update += ProcessCommands;
+                try
+                {
+                    listener = new TcpListener(IPAddress.Loopback, port);
+                    listener.Start();
+                    actualPort = port;
+                    UnityMcpConfig.UnityPort = port;
+                    portFound = true;
+                    isRunning = true;
+                    
+                    // Write the port file immediately after successful binding
+                    if (!UnityMcpConfig.WritePortFile(port))
+                    {
+                        Debug.LogWarning($"Failed to write port file, but continuing with port {port}");
+                    }
+                    
+                    Debug.Log($"UnityMcpBridge started on port {port}.");
+                    Task.Run(ListenerLoop);
+                    EditorApplication.update += ProcessCommands;
+                    break;
+                }
+                catch (SocketException ex)
+                {
+                    if (ex.SocketErrorCode == SocketError.AddressAlreadyInUse)
+                    {
+                        Debug.Log($"Port {port} is already in use, trying next port...");
+                        if (listener != null)
+                        {
+                            try { listener.Stop(); } catch { }
+                            listener = null;
+                        }
+                        continue;
+                    }
+                    else
+                    {
+                        Debug.LogError($"Failed to start TCP listener on port {port}: {ex.Message}");
+                        break;
+                    }
+                }
             }
-            catch (SocketException ex)
+
+            if (!portFound)
             {
-                if (ex.SocketErrorCode == SocketError.AddressAlreadyInUse)
-                {
-                    Debug.LogError(
-                        $"Port {unityPort} is already in use. Ensure no other instances are running or change the port."
-                    );
-                }
-                else
-                {
-                    Debug.LogError($"Failed to start TCP listener: {ex.Message}");
-                }
+                Debug.LogError($"Failed to find an available port between {startPort} and {maxPort}. Cannot start UnityMcpBridge.");
+                isRunning = false;
             }
         }
 
@@ -109,6 +140,8 @@ namespace UnityMcpBridge.Editor
                 listener?.Stop();
                 listener = null;
                 isRunning = false;
+                actualPort = 0;
+                UnityMcpConfig.ClearCachedPort();
                 EditorApplication.update -= ProcessCommands;
                 Debug.Log("UnityMcpBridge stopped.");
             }
