@@ -1,6 +1,8 @@
 using System;
+using System.Collections;
 using System.Collections.Generic; // Added for HashSet
 using Newtonsoft.Json.Linq;
+using Unity.EditorCoroutines.Editor;
 using UnityEditor;
 using UnityEngine;
 using UnityMcpBridge.Editor.Helpers; // For Response class
@@ -61,6 +63,28 @@ namespace UnityMcpBridge.Editor.Tools
             }
         }
 
+        private static IEnumerator ExecutionCoroutine(string menuPath)
+        {
+            yield return null;
+            try
+            {
+                bool executed = EditorApplication.ExecuteMenuItem(menuPath);
+                // Log potential failure inside the delayed call.
+                if (!executed)
+                {
+                    Debug.LogError(
+                        $"[ExecuteMenuItem] Failed to find or execute menu item: '{menuPath}'. It might be invalid, disabled, or context-dependent."
+                    );
+                }
+            }
+            catch (Exception delayEx)
+            {
+                Debug.LogError(
+                    $"[ExecuteMenuItem] Exception during delayed execution of '{menuPath}': {delayEx}"
+                );
+            }
+        }
+
         /// <summary>
         /// Executes a specific menu item.
         /// </summary>
@@ -94,29 +118,7 @@ namespace UnityMcpBridge.Editor.Tools
 
             try
             {
-                // Attempt to execute the menu item on the main thread using delayCall for safety.
-                EditorApplication.delayCall += () =>
-                {
-                    try
-                    {
-                        bool executed = EditorApplication.ExecuteMenuItem(menuPath);
-                        // Log potential failure inside the delayed call.
-                        if (!executed)
-                        {
-                            Debug.LogError(
-                                $"[ExecuteMenuItem] Failed to find or execute menu item via delayCall: '{menuPath}'. It might be invalid, disabled, or context-dependent."
-                            );
-                        }
-                    }
-                    catch (Exception delayEx)
-                    {
-                        Debug.LogError(
-                            $"[ExecuteMenuItem] Exception during delayed execution of '{menuPath}': {delayEx}"
-                        );
-                    }
-                };
-
-                // Report attempt immediately, as execution is delayed.
+                EditorCoroutineUtility.StartCoroutineOwnerless(ExecutionCoroutine(menuPath)); // Report attempt immediately, as execution is delayed.
                 return Response.Success(
                     $"Attempted to execute menu item: '{menuPath}'. Check Unity logs for confirmation or errors."
                 );

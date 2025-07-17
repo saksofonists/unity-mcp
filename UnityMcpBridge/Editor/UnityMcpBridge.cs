@@ -1,12 +1,15 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
+using System.Threading;
 using System.Threading.Tasks;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using Unity.EditorCoroutines.Editor;
 using UnityEditor;
 using UnityEngine;
 using UnityMcpBridge.Editor.Configuration;
@@ -27,6 +30,7 @@ namespace UnityMcpBridge.Editor
             (string commandJson, TaskCompletionSource<string> tcs)
         > commandQueue = new();
         private static int actualPort = 0; // Track the actual port being used
+        private static EditorCoroutine processCommandsCoroutine;
 
         public static bool IsRunning => isRunning;
         public static int ActualPort => actualPort;
@@ -98,7 +102,10 @@ namespace UnityMcpBridge.Editor
                     
                     Debug.Log($"UnityMcpBridge started on port {port}.");
                     Task.Run(ListenerLoop);
-                    EditorApplication.update += ProcessCommands;
+                    
+                    // Start timer to process commands every 16ms (approximately 60 FPS)
+                    Application.runInBackground = true;
+                    processCommandsCoroutine = EditorCoroutineUtility.StartCoroutineOwnerless(ScheduleAndProcessCommands());
                     break;
                 }
                 catch (SocketException ex)
@@ -142,7 +149,13 @@ namespace UnityMcpBridge.Editor
                 isRunning = false;
                 actualPort = 0;
                 UnityMcpConfig.ClearCachedPort();
-                EditorApplication.update -= ProcessCommands;
+                
+                // Stop the command processing timer
+                if (processCommandsCoroutine != null)
+                {
+                    EditorCoroutineUtility.StopCoroutine(processCommandsCoroutine);
+                }
+
                 Debug.Log("UnityMcpBridge stopped.");
             }
             catch (Exception ex)
@@ -233,6 +246,26 @@ namespace UnityMcpBridge.Editor
                     }
                 }
             }
+        }
+
+        private static IEnumerator ScheduleAndProcessCommands()
+        {
+            while (true)
+            {
+                yield return null;
+                lock (lockObj)
+                {
+                    if (commandQueue.Count > 0)
+                    {
+                        EditorApplication.RepaintHierarchyWindow();
+                        EditorApplication.RepaintProjectWindow();
+                    }
+                }
+                ProcessCommands();
+            }
+
+            Debug.LogError("Coroutine crashed. Will try to restart MCP Bridge!");
+            Start();
         }
 
         private static void ProcessCommands()
