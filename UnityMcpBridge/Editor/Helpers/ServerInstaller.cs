@@ -11,7 +11,7 @@ namespace UnityMcpBridge.Editor.Helpers
     public static class ServerInstaller
     {
         private const string RootFolder = "UnityMCP";
-        private const string ServerFolder = "UnityMcpServer";
+        public const string ServerFolder = "UnityMcpServer";
         private const string BranchName = "master";
         private const string GitUrl = "https://github.com/saksofonists/unity-mcp.git";
         private const string PyprojectUrl =
@@ -72,14 +72,14 @@ namespace UnityMcpBridge.Editor.Helpers
             string projectServerPath = UnityMcpConfig.GetProjectServerPath();
             
             // Ensure the base directory exists (Library should always exist, but let's be safe)
-            string libraryPath = UnityMcpConfig.GetProjectLibraryPath();
-            if (!Directory.Exists(libraryPath))
+            string tempPath = UnityMcpConfig.GetProjectTempPath();
+            if (!Directory.Exists(tempPath))
             {
-                throw new Exception($"Unity Library directory not found at: {libraryPath}. Is this a valid Unity project?");
+                throw new Exception($"Unity Library directory not found at: {tempPath}. Is this a valid Unity project?");
             }
             
             // Return the parent directory of the server folder since other methods expect this structure
-            return Path.GetDirectoryName(projectServerPath);
+            return projectServerPath;
         }
 
         private static bool IsDirectoryWritable(string path)
@@ -207,7 +207,7 @@ namespace UnityMcpBridge.Editor.Helpers
         /// <summary>
         /// Runs a command-line process and handles output/errors.
         /// </summary>
-        private static void RunCommand(
+        public static void RunCommand(
             string command,
             string arguments,
             string workingDirectory = null
@@ -253,16 +253,16 @@ namespace UnityMcpBridge.Editor.Helpers
                 }
 
                 // Check if Library directory exists
-                string libraryPath = UnityMcpConfig.GetProjectLibraryPath();
-                if (!Directory.Exists(libraryPath))
+                string tempPath = UnityMcpConfig.GetProjectTempPath();
+                if (!Directory.Exists(tempPath))
                 {
                     return false;
                 }
 
                 // Check if we can write to the Library directory
-                if (!IsDirectoryWritable(libraryPath))
+                if (!IsDirectoryWritable(tempPath))
                 {
-                    Debug.LogError($"[ServerInstaller] Library directory is not writable: {libraryPath}");
+                    Debug.LogError($"[ServerInstaller] Library directory is not writable: {tempPath}");
                     return false;
                 }
 

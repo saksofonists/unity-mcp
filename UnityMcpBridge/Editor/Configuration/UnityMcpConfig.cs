@@ -68,9 +68,9 @@ namespace UnityMcpBridge.Editor.Configuration
         /// <summary>
         /// Gets the Library directory path for the current project
         /// </summary>
-        public static string GetProjectLibraryPath()
+        public static string GetProjectTempPath()
         {
-            return Path.Combine(GetProjectPath(), "Library");
+            return Path.Combine(GetProjectPath(), "Temp");
         }
         
         /// <summary>
@@ -78,7 +78,7 @@ namespace UnityMcpBridge.Editor.Configuration
         /// </summary>
         public static string GetProjectServerPath()
         {
-            return Path.Combine(GetProjectLibraryPath(), "UnityMcpServer");
+            return Path.Combine(GetProjectTempPath(), "UnityMcpServer");
         }
         
         /// <summary>

@@ -77,6 +77,60 @@ namespace UnityMcpBridge.Editor.Windows
                 pythonServerInstallationStatusColor = Color.red;
             }
         }
+        
+        private void ReinstallPythonServer()
+        {
+            try
+            {
+                pythonServerInstallationStatus = "Reinstalling...";
+                pythonServerInstallationStatusColor = Color.yellow;
+                Repaint();
+                
+                // Get the server directory path
+                string serverPath = ServerInstaller.GetServerPath();
+                string serverParentPath = Path.GetDirectoryName(serverPath);
+                string serverFolder = Path.GetDirectoryName(serverParentPath);
+
+                // Delete existing server folder if it exists
+                if (Directory.Exists(serverFolder))
+                {
+                    try
+                    {
+                        Directory.Delete(serverFolder, true);
+                        Debug.Log("[Unity MCP] Deleted existing Python server.");
+                    }
+                    catch (Exception e)
+                    {
+                        Debug.LogError("[Unity MCP] Exception while deleting existing server. But trying to reinstall anyway.");
+                    }
+                }
+
+                // Reinstall the server
+                ServerInstaller.EnsureServerInstalled();
+                
+                // Update status
+                UpdatePythonServerInstallationStatus();
+                Debug.Log("[Unity MCP] Python server reinstalled successfully.");
+                
+                // Show success dialog
+                EditorUtility.DisplayDialog(
+                    "Reinstall Complete", 
+                    "Python server has been reinstalled successfully.", 
+                    "OK");
+            }
+            catch (Exception e)
+            {
+                pythonServerInstallationStatus = "Reinstall Failed";
+                pythonServerInstallationStatusColor = Color.red;
+                Debug.LogError($"[Unity MCP] Failed to reinstall Python server: {e.Message}");
+                
+                // Show error dialog
+                EditorUtility.DisplayDialog(
+                    "Reinstall Failed", 
+                    $"Failed to reinstall Python server:\n{e.Message}", 
+                    "OK");
+            }
+        }
 
         private void ConfigurationSection(McpClient mcpClient)
         {
@@ -282,6 +336,19 @@ namespace UnityMcpBridge.Editor.Windows
             int displayPort = UnityMcpBridge.IsRunning ? UnityMcpBridge.ActualPort : UnityMcpConfig.UnityPort;
             EditorGUILayout.LabelField($"Unity Port: {displayPort}");
             EditorGUILayout.LabelField($"MCP Port: {UnityMcpConfig.McpPort}");
+            
+            if (GUILayout.Button("Reinstall Python Server"))
+            {
+                if (EditorUtility.DisplayDialog(
+                    "Reinstall Python Server", 
+                    "This will delete the existing Python server and download a fresh copy. Continue?", 
+                    "Yes", 
+                    "Cancel"))
+                {
+                    ReinstallPythonServer();
+                }
+            }
+            
             EditorGUILayout.HelpBox(
                 "Your MCP client (e.g. Cursor or Claude Desktop) will start the server automatically when you start it.",
                 MessageType.Info
